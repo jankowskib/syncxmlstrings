@@ -19,19 +19,21 @@ def syncxmlfile(fin, fout, keys, fref = nil)
 	xmlOrgData = File.read(fout)
 	changes = 0
 	
+	strexp = /^\s*\<string\s*name="(\w*)"\s*(?:product="\w*"|\s*)\s*(?:msgid="\w*"|\s*)\s*(?:formatted="(\w*)"|\s*)\s*\>(.*?)\<\/string\>/m
+	
 	if fref
 		xmlRefData = File.read(fref)
-		xmlRefData.scan(/^\s*\<string\s*name="(\w*)"\s*(?:formatted="(\w*)"|\s*)\s*\>(.*?)\<\/string\>/m) do |a,b,c|
+		xmlRefData.scan(strexp) do |a,b,c|
 			refstrs[a] = {:formatted => b == "false" ? false : true, :content => c }
 		end
 	end
 	
-	xmlOrgData.scan(/^\s*\<string\s*name="(\w*)"\s*(?:formatted="(\w*)"|\s*)\s*\>(.*?)\<\/string\>/m) do |a,b,c|
+	xmlOrgData.scan(strexp) do |a,b,c|
 		strs[a] = {:formatted => b == "false" ? false : true, :content => c }
 	end
 	entries = strs.length
 	
-	xmlNewData.scan(/^\s*\<string\s*name="(\w*)"\s*(?:formatted="(\w*)"|\s*)\s*\>(.*?)\<\/string\>/m) do |a,b,c|
+	xmlNewData.scan(strexp) do |a,b,c|
 		newstrs[a] = {:formatted => b == "false" ? false : true, :content => c }
 	end
 			
