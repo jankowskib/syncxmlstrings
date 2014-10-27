@@ -21,8 +21,8 @@ require 'colorize'
 require 'fileutils'
 
 def syncxmlfile(fin, fout, keys, fref = nil)
-	
-	folder = /^.*(values.*)\//.match(fin)[1]
+	fmatch = /^.*(values.*)\//.match(fin)
+	folder = fmatch == nil ? "?" : fmatch[1]
 	if not File.exists?(fin) or not File.exists?(fout) then
 		print "#{folder} [NO_FILE] ".red
 		return {}
@@ -229,11 +229,11 @@ else
 	puts "Reference: " << $options[:ref] if $options[:ref]
 	strs = syncxmlfile($options[:inp], $options[:out], $options[:strings], $options[:ref])
 	if strs.empty?
-		puts "#{$options[:inp]}: Up to date...".green
+		puts "#{$options[:out]}: Up to date...".green
 		exit
 	end
 	
-	puts "#{$options[:inp]}: Syncing...".green
+	puts "#{$options[:out]}: Syncing...".green
 	if $options[:ro] == false
 		File.open($options[:out], 'wb') do |file| 
 			file.write("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<resources>\n") 
