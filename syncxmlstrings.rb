@@ -92,10 +92,11 @@ def syncxmlfile(fin, fout, keys, fref = nil)
 		if !strs.has_key?(s)
 			if !refstrs.empty? && refstrs.has_key?(s)
 				puts "[A] " + s + ": '" + refstrs[s][:content] + "'" if $options[:verbose]
+				strs[s] = refstrs[s]
 			else
 				puts "[A] " + s + ": '" + c[:content] + "'" if $options[:verbose]
-			end
-			strs[s] = newstrs[s]
+				strs[s] = newstrs[s]
+			end	
 			adds+=1
 		end
 	end
