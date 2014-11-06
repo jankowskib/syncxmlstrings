@@ -120,13 +120,14 @@ $options[:look] = false
 $options[:quick] = false
 $options[:clean] = false
 $options[:ro] = false
+$options[:std] = false
 
 OptionParser.new do |opts|
 	opts.banner = "Usage:
 To sync single file: syncxmlstrings.rb [options] --i[nput] <file.xml> --o[utput] <file.xml>
 	or
 To sync every strings from directory: syncxmlstrings.rb [options] --f[rom] <directory> --t[o] <directory>
-options: --[v]erbose --[a]sk, -r --dont-replace, --[m]aster <file.xml>, --[l]ook-for-master (dir sync mode only), --s[trings] <str1>,<str2> ... --[j]ust-add-missing (dir sync mode only) --[c]lean --[d]o-nothing"
+options: --[v]erbose --[a]sk, -r --dont-replace, --[m]aster <file.xml>, --[l]ook-for-master (dir sync mode only), --s[trings] <str1>,<str2> ... --[j]ust-add-missing (dir sync mode only) --[c]lean --[d]o-nothing --[p]rint"
 	opts.on("-i", "--input FILE", String, "Input string.xml file where strings will be searched") do |v|
 		$options[:inp] = v
 	end
@@ -162,6 +163,9 @@ options: --[v]erbose --[a]sk, -r --dont-replace, --[m]aster <file.xml>, --[l]ook
 	end
 	opts.on("-r", "--read-only", "Doesn't make any change. Just print the possible changes. You should use this with -v") do |v|
 		$options[:ro] = true
+	end
+	opts.on("-p", "--print", "Print out the changes to stdout. You should use this with --read-only") do |v|
+		$options[:std] = true
 	end
 	opts.on("-v", "--verbose", "Print the changes") do |v|
 		$options[:verbose] = true
@@ -218,6 +222,16 @@ if $options[:dirmode] then
 						f.write("</resources>")
 					end
 				end
+				if $options[:std] == true
+					entry = ""
+					strs.each do |s,c| 
+						entry << "    <string name=\"#{s}\""
+						entry << ' formatted="false"' if not c[:formatted]
+						entry << ">#{c[:content]}"
+						entry << "</string>\n"
+					end
+					puts entry
+				end
 			elsif File.exists?("#{$options[:from]}/#{val}/strings.xml")
 				print "#{val} ".blue
 				if $options[:ro] == false
@@ -252,5 +266,15 @@ else
 			file.write entry
 			file.write("</resources>")
 		end
+	end
+	if $options[:std] == true
+		entry = ""
+		strs.each do |s,c| 
+				entry << "    <string name=\"#{s}\""
+				entry << ' formatted="false"' if not c[:formatted]
+				entry << ">#{c[:content]}"
+				entry << "</string>\n"
+		end
+		puts entry
 	end
 end
