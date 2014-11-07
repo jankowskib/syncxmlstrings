@@ -85,8 +85,8 @@ def syncxmlfile(fin, fout, keys, fref = nil)
 			if $options[:std] == true
 				entry = ""
 				entry << "    <string name=\"#{s}\""
-				entry << ' formatted="false"' if not strs[s][:formatted]
-				entry << ">#{strs[s][:content]}"
+				entry << ' formatted="false"' if not c[:formatted]
+				entry << ">#{c[:content]}"
 				entry << "</string>\n"
 				puts entry
 			end
@@ -108,8 +108,8 @@ def syncxmlfile(fin, fout, keys, fref = nil)
 			if $options[:std] == true
 				entry = ""
 				entry << "    <string name=\"#{s}\""
-				entry << ' formatted="false"' if not strs[s][:formatted]
-				entry << ">#{strs[s][:content]}"
+				entry << ' formatted="false"' if not c[:formatted]
+				entry << ">#{c[:content]}"
 				entry << "</string>\n"
 				puts entry
 			end
@@ -225,7 +225,7 @@ if $options[:dirmode] then
 						next
 					end
 				if $options[:ro] == false
-					File.open("#{$options[:to]}/#{val}/strings.xml", 'wb') do |f| 
+					File.open("#{$options[:to]}/#{val}/strings.xml", 'wb:UTF-8') do |f| 
 						f.write("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<resources>\n") 
 						entry = ""
 						strs.each do |s,c| 
@@ -260,7 +260,7 @@ else
 	
 	puts "#{$options[:out]}: Syncing...".green
 	if $options[:ro] == false
-		File.open($options[:out], 'wb') do |file| 
+		File.open($options[:out], 'wb:UTF-8') do |file| 
 			file.write("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<resources>\n") 
 			entry = ""
 			strs.each do |s,c| 
