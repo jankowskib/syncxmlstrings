@@ -78,10 +78,18 @@ def syncxmlfile(fin, fout, keys, fref = nil)
 			end
 		end
 		
-		if newstrs[s] != strs[s] && $options[:replace] == false
+		if newstrs[s][:content] != c[:content] && $options[:replace] == false
 			puts "[M] " + s + ": '" + c[:content] + "' -> '" + newstrs[s][:content] + "'" if $options[:verbose]
-			strs[s] = newstrs[s]
+			c = newstrs[s]
 			changes+=1
+			if $options[:std] == true
+				entry = ""
+				entry << "    <string name=\"#{s}\""
+				entry << ' formatted="false"' if not strs[s][:formatted]
+				entry << ">#{strs[s][:content]}"
+				entry << "</string>\n"
+				puts entry
+			end
 		end
 		
 	end
@@ -96,7 +104,15 @@ def syncxmlfile(fin, fout, keys, fref = nil)
 			else
 				puts "[A] " + s + ": '" + c[:content] + "'" if $options[:verbose]
 				strs[s] = newstrs[s]
-			end	
+			end
+			if $options[:std] == true
+				entry = ""
+				entry << "    <string name=\"#{s}\""
+				entry << ' formatted="false"' if not strs[s][:formatted]
+				entry << ">#{strs[s][:content]}"
+				entry << "</string>\n"
+				puts entry
+			end
 			adds+=1
 		end
 	end
@@ -222,16 +238,6 @@ if $options[:dirmode] then
 						f.write("</resources>")
 					end
 				end
-				if $options[:std] == true
-					entry = ""
-					strs.each do |s,c| 
-						entry << "    <string name=\"#{s}\""
-						entry << ' formatted="false"' if not c[:formatted]
-						entry << ">#{c[:content]}"
-						entry << "</string>\n"
-					end
-					puts entry
-				end
 			elsif File.exists?("#{$options[:from]}/#{val}/strings.xml")
 				print "#{val} ".blue
 				if $options[:ro] == false
@@ -266,15 +272,5 @@ else
 			file.write entry
 			file.write("</resources>")
 		end
-	end
-	if $options[:std] == true
-		entry = ""
-		strs.each do |s,c| 
-				entry << "    <string name=\"#{s}\""
-				entry << ' formatted="false"' if not c[:formatted]
-				entry << ">#{c[:content]}"
-				entry << "</string>\n"
-		end
-		puts entry
 	end
 end
