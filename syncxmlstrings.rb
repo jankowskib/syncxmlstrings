@@ -15,10 +15,11 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 #
- 
+
 require 'optparse'
 require 'colorize'
 require 'fileutils'
+require 'tempfile'
 
 def syncxmlfile(fin, fout, keys, fref = nil)
 	fmatch = /^.*(values.*)\//.match(fin)
@@ -36,36 +37,38 @@ def syncxmlfile(fin, fout, keys, fref = nil)
 	changes = 0
 	removes = 0
 	adds = 0
-	
+
 	strexp = /^\s*\<string\s*name="(\w*)"\s*(?:product="\w*"|\s*)\s*(?:msgid="\w*"|\s*)\s*(?:formatted="(\w*)"|\s*)\s*\>(.*?)\<\/string\>/m
-	
+
 	if fref
 		xmlRefData = File.read(fref)
 		xmlRefData.scan(strexp) do |a,b,c|
 			refstrs[a] = {:formatted => b == "false" ? false : true, :content => c }
 		end
 	end
-	
+
 	xmlOrgData.scan(strexp) do |a,b,c|
 		strs[a] = {:formatted => b == "false" ? false : true, :content => c }
 	end
-	
+
 	xmlNewData.scan(strexp) do |a,b,c|
 		newstrs[a] = {:formatted => b == "false" ? false : true, :content => c }
 	end
-			
+
+
 	strs.each do |s,c|
+    next if !keys.empty? && !keys.include?(s)
 		if $options[:clean] == true && !refstrs.has_key?(s) then
 			puts "[R] " + s + ": '" + c[:content] + "'" if $options[:verbose]
 			strs.delete(s)
 			removes-=1
 			next
 		end
-		
+
 		next if !newstrs.has_key?(s)
 		# Skip if key isn't translated but exists in input file
 		next if refstrs.has_key?(s) && refstrs[s] == newstrs[s]
-		
+
 		if $options[:ask] == true && newstrs[s] != strs[s] then
 			puts "#{s}:".green
 			print "#{c[:content]} -> #{newstrs[s][:content]} [y/n/a]: "
@@ -77,10 +80,10 @@ def syncxmlfile(fin, fout, keys, fref = nil)
 				next
 			end
 		end
-		
+
 		if newstrs[s][:content] != c[:content] && $options[:replace] == false
 			puts "[M] " + s + ": '" + c[:content] + "' -> '" + newstrs[s][:content] + "'" if $options[:verbose]
-			c = newstrs[s]
+			strs[s] = newstrs[s]
 			changes+=1
 			if $options[:std] == true
 				entry = ""
@@ -91,10 +94,11 @@ def syncxmlfile(fin, fout, keys, fref = nil)
 				puts entry
 			end
 		end
-		
+
 	end
-	
-	newstrs.each do |s,c|	
+
+	newstrs.each do |s,c|
+        next if !keys.empty? && !keys.include?(s)
 		next if !refstrs.empty? && !refstrs.has_key?(s)
 
 		if !strs.has_key?(s)
@@ -118,7 +122,7 @@ def syncxmlfile(fin, fout, keys, fref = nil)
 	end
 
 	if changes>0 || adds>0 || removes>0
-		print "#{folder} [+#{adds}/-#{removes}/*#{changes}] ".yellow 
+		print "#{folder} [+#{adds}/-#{removes}/*#{changes}] ".yellow
 		strs
 	else
 		{}
@@ -137,6 +141,7 @@ $options[:quick] = false
 $options[:clean] = false
 $options[:ro] = false
 $options[:std] = false
+$options[:strings] = Array.new
 
 OptionParser.new do |opts|
 	opts.banner = "Usage:
@@ -177,7 +182,7 @@ options: --[v]erbose --[a]sk, -r --dont-replace, --[m]aster <file.xml>, --[l]ook
 	opts.on("-c", "--clean", "Remove strings not included in refrence file. Use with -m or -l") do |v|
 		$options[:clean] = true
 	end
-	opts.on("-r", "--read-only", "Doesn't make any change. Just print the possible changes. You should use this with -v") do |v|
+	opts.on("-r", "--read-only", "Don't make any change. Just print the possible changes. You should use this with -v") do |v|
 		$options[:ro] = true
 	end
 	opts.on("-p", "--print", "Print out the changes to stdout. You should use this with --read-only") do |v|
@@ -205,10 +210,14 @@ if !$options[:dirmode] && ($options[:quick] || $options[:look])
 end
 
 
-puts "Synced strings: " << $options[:strings] if $options[:strings]
+puts "Synced strings: " << $options[:strings].to_s if $options[:strings]
 
 if $options[:dirmode] then
-	puts "Input directory: " + $options[:from] 
+	# Create a temp file to sync non for non existing files
+	temp = Tempfile.new('synchelper')
+	temp.write("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<resources>\n</resources>")
+
+	puts "Input directory: " + $options[:from]
 	puts "Output directory: " + $options[:to]
 		if $options[:look] && File.exists?("#{$options[:from]}/values/strings.xml")
 			puts "Using reference: " + "#{$options[:to]}/values/strings.xml"
@@ -220,15 +229,19 @@ if $options[:dirmode] then
 			if File.exists?("#{$options[:to]}/#{val}/strings.xml") then
 				next if $options[:quick]
 				strs = syncxmlfile("#{$options[:from]}/#{val}/strings.xml","#{$options[:to]}/#{val}/strings.xml", $options[:strings], $options[:ref])
-					if strs.empty?
-						print "#{val} ".green
-						next
-					end
+                if File.exists?("#{$options[:from]}/#{val}/cm_strings.xml")
+                    strs.merge!(syncxmlfile("#{$options[:from]}/#{val}/cm_strings.xml","#{$options[:to]}/#{val}/strings.xml", $options[:strings], $options[:ref]))
+                end
+                if strs.empty?
+                    print "#{val} ".green
+                    next
+                end
+
 				if $options[:ro] == false
-					File.open("#{$options[:to]}/#{val}/strings.xml", 'wb:UTF-8') do |f| 
-						f.write("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<resources>\n") 
-						entry = ""
-						strs.each do |s,c| 
+					File.open("#{$options[:to]}/#{val}/strings.xml", 'wb:UTF-8') do |f|
+						f.write("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<resources>\n")
+						entry = String.new
+						strs.each do |s,c|
 							entry << "    <string name=\"#{s}\""
 							entry << ' formatted="false"' if not c[:formatted]
 							entry << ">#{c[:content]}"
@@ -239,11 +252,45 @@ if $options[:dirmode] then
 					end
 				end
 			elsif File.exists?("#{$options[:from]}/#{val}/strings.xml")
-				print "#{val} ".blue
-				if $options[:ro] == false
-					FileUtils.mkdir "#{$options[:to]}/#{val}/" if not File.directory?("#{$options[:to]}/#{val}/")
-					FileUtils.cp("#{$options[:from]}/#{val}/strings.xml", "#{$options[:to]}/#{val}/")
-				end
+	      if($options[:strings].empty?)
+					print "#{val} ".blue
+					if $options[:ro] == false
+						FileUtils.mkdir "#{$options[:to]}/#{val}/" if not File.directory?("#{$options[:to]}/#{val}/")
+					  FileUtils.cp("#{$options[:from]}/#{val}/strings.xml", "#{$options[:to]}/#{val}/")
+					end
+	      else
+					strs = syncxmlfile("#{$options[:from]}/#{val}/strings.xml",temp.path, $options[:strings], $options[:ref])
+	        if File.exists?("#{$options[:from]}/#{val}/cm_strings.xml")
+	            strs.merge!(syncxmlfile("#{$options[:from]}/#{val}/cm_strings.xml",temp.path, $options[:strings], $options[:ref]))
+	        end
+	        if strs.empty?
+	          print "#{val} ".green
+	          next
+	        end
+
+					if not File.exists?("#{$options[:to]}/#{val}/strings.xml") && $options[:ro] == false then
+						# migrate needed strings - recreate an empty file 1st
+						FileUtils.mkdir "#{$options[:to]}/#{val}/" if not File.directory?("#{$options[:to]}/#{val}/")
+						File.open("#{$options[:to]}/#{val}/strings.xml", 'wb:UTF-8') do |f|
+							f.write("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<resources>\n</resources>")
+						end
+					end
+
+					if $options[:ro] == false
+		        File.open("#{$options[:to]}/#{val}/strings.xml", 'wb:UTF-8') do |f|
+							f.write("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<resources>\n")
+							entry = ""
+							strs.each do |s,c|
+								entry << "    <string name=\"#{s}\""
+								entry << ' formatted="false"' if not c[:formatted]
+								entry << ">#{c[:content]}"
+								entry << "</string>\n"
+							end
+							f.write entry
+							f.write("</resources>")
+						end
+					end
+	      end
 			end
 		end
 	end
@@ -257,13 +304,13 @@ else
 		puts "#{$options[:out]}: Up to date...".green
 		exit
 	end
-	
+
 	puts "#{$options[:out]}: Syncing...".green
 	if $options[:ro] == false
-		File.open($options[:out], 'wb:UTF-8') do |file| 
-			file.write("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<resources>\n") 
+		File.open($options[:out], 'wb:UTF-8') do |file|
+			file.write("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<resources>\n")
 			entry = ""
-			strs.each do |s,c| 
+			strs.each do |s,c|
 				entry << "    <string name=\"#{s}\""
 				entry << ' formatted="false"' if not c[:formatted]
 				entry << ">#{c[:content]}"
